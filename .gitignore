@@ -1,0 +1,20 @@
+# Ignorar archivos de Python
+~/__pycache__/
+~/autenticacion\__pycache__\
+~/autenticacion\migrations\__pycache__\
+*.pyc
+
+# Ignorar entornos virtuales
+venv/
+mi_entorno/
+
+# Ignorar archivos de configuración de IDE
+.vscode/
+.idea/
+
+# Ignorar archivos de log
+*.log
+
+# Ignorar archivos de sistema
+.DS_Store
+Thumbs.db

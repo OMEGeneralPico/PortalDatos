@@ -3,6 +3,36 @@
 {% block title %}Inicio{% endblock %}
 
 {% block content %}
-    <h2>Bienvenido a tu portal</h2>
-    <p>Esta es la página principal.</p>
+    <h2 class="center-align">Bienvenido a tu portal</h2>
+    <p class="center-align">Esta es la página principal.</p>
+
+    <!-- Carrusel -->
+    <div class="carousel">
+        <a class="carousel-item" href="#"><img src="/static/img/carrusel1.jpg" alt="Imagen 1"></a>
+        <a class="carousel-item" href="#"><img src="/static/img/carrusel2.jpg" alt="Imagen 2"></a>
+        <a class="carousel-item" href="#"><img src="/static/img/carrusel3.jpg" alt="Imagen 3"></a>
+    </div>
+
+    <!-- Botonera con imágenes -->
+    <div class="row center-align">
+        <div class="col s3">
+            <a href="#"><img src="/static/img/boton1.jpg" class="responsive-img circle" alt="Botón 1"></a>
+        </div>
+        <div class="col s3">
+            <a href="#"><img src="/static/img/boton2.jpg" class="responsive-img circle" alt="Botón 2"></a>
+        </div>
+        <div class="col s3">
+            <a href="#"><img src="/static/img/boton3.jpg" class="responsive-img circle" alt="Botón 3"></a>
+        </div>
+        <div class="col s3">
+            <a href="#"><img src="/static/img/boton4.jpg" class="responsive-img circle" alt="Botón 4"></a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var elems = document.querySelectorAll('.carousel');
+            M.Carousel.init(elems, { fullWidth: true, indicators: true });
+        });
+    </script>
 {% endblock %}
