@@ -1,5 +1,7 @@
 # Ignorar archivos de Python
 __pycache__/
+autenticacion\__pycache__\
+autenticacion\migrations\__pycache__\
 *.pyc
 
 # Ignorar entornos virtuales
