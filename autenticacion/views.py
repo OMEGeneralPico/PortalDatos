@@ -151,7 +151,68 @@ def logout_view(request):
     return redirect("/login/")
 
 @login_required
+@login_required
 def vista_secretaria(request):
+    perfil = request.user.userprofile
+    areas_permitidas = perfil.get_areas_list() if not perfil.is_admin else []
+
+    queryset = Presupuesto.objects.all()  # Siempre traemos todo, luego filtramos por sufijo
+
+    todos_los_datos = list(queryset.values(
+        "secretaria", "tipo", "direccion", "codigo",
+        "credito_actual", "reestructuras", "compromiso", "disponible",
+        "año"
+    ))
+
+    datos_filtrados = []
+
+    for dato in todos_los_datos:
+        dato["credito_actual"] = float(dato["credito_actual"] or 0)
+        dato["reestructuras"] = float(dato["reestructuras"] or 0)
+        dato["compromiso"] = float(dato["compromiso"] or 0)
+        dato["disponible"] = float(dato["disponible"] or 0)
+        dato["año"] = int(dato["año"]) if dato["año"] is not None else 0
+        dato["secretaria"] = dato["secretaria"] if dato["secretaria"] is not None else "Indefinido"
+        dato["tipo"] = dato["tipo"] if dato["tipo"] is not None else "Indefinido"
+        dato["direccion"] = dato["direccion"] if dato["direccion"] is not None else "Indefinido"
+
+        original_codigo_val = dato.get("codigo")
+        processed_codigo_str = str(original_codigo_val) if original_codigo_val is not None else "N/A"
+        dato["codigo"] = processed_codigo_str
+
+        if processed_codigo_str != "N/A":
+            parts = processed_codigo_str.split("'")
+            codigo_str = str(dato.get("codigo") or "")  # Siempre string, por seguridad
+
+        # Prefijo (primeros dos caracteres si existen)
+        if len(codigo_str) >= 2:
+            dato["codigo_prefijo"] = codigo_str[:2]
+        else:
+            dato["codigo_prefijo"] = "00"  # o "N/A" si preferís
+
+        # Sufijo (últimos dos caracteres si existen)
+        if len(codigo_str) >= 2:
+            dato["codigo_sufijo"] = codigo_str[-2:]
+        else:
+            dato["codigo_sufijo"] = "XX"  # o "N/A" también
+
+
+        # ✅ FILTRAMOS por codigo_sufijo si NO es admin
+        if perfil.is_admin or dato["codigo_prefijo"] in areas_permitidas:
+         datos_filtrados.append(dato)
+
+
+    return render(request, "VistaSecretaria.html", {
+        "todos_los_datos_presupuesto_json": json.dumps(datos_filtrados)
+    })
+
+    perfil = request.user.userprofile
+
+    if perfil.is_admin:
+        queryset = Presupuesto.objects.all()
+    else:
+        areas = perfil.get_areas_list()
+        queryset = Presupuesto.objects.filter(secretaria__in=areas)
     # Fetch all necessary fields from the Presupuesto model
     # 'codigo_sufijo' is NOT fetched here as it's derived later
     todos_los_datos = list(Presupuesto.objects.values(
