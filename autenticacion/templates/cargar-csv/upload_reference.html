@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Carga de Datos de Referencia{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h4>Cargar archivos CSV para modelos de referencia</h4>
+    <p>Los archivos deben tener las columnas <strong>CODE</strong> y <strong>DESC</strong>.</p>
+
+    {% if errores %}
+        <ul class="card-panel red white-text">
+            {% for error in errores %}
+                <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    {% elif exito %}
+        <div class="card-panel green white-text">
+            <strong>¡Carga exitosa!</strong> Los archivos fueron procesados correctamente.
+        </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col s12 m4">
+                <h6>Secretaría</h6>
+                <div class="file-field input-field">
+                    <div class="btn"><span>Archivo CSV</span>
+                        <input type="file" name="secretaria_csv" accept=".csv">
+                    </div>
+                    <div class="file-path-wrapper">
+                        <input class="file-path validate" type="text" placeholder="Cargar archivo de Secretaría">
+                    </div>
+                </div>
+            </div>
+
+            <div class="col s12 m4">
+                <h6>Dirección</h6>
+                <div class="file-field input-field">
+                    <div class="btn"><span>Archivo CSV</span>
+                        <input type="file" name="direccion_csv" accept=".csv">
+                    </div>
+                    <div class="file-path-wrapper">
+                        <input class="file-path validate" type="text" placeholder="Cargar archivo de Dirección">
+                    </div>
+                </div>
+            </div>
+
+            <div class="col s12 m4">
+                <h6>Actividad</h6>
+                <div class="file-field input-field">
+                    <div class="btn"><span>Archivo CSV</span>
+                        <input type="file" name="actividad_csv" accept=".csv">
+                    </div>
+                    <div class="file-path-wrapper">
+                        <input class="file-path validate" type="text" placeholder="Cargar archivo de Actividad">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn waves-effect waves-light">Subir archivos</button>
+    </form>
+</div>
+{% endblock %}

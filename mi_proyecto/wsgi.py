@@ -1,12 +1,16 @@
-# -*- coding: utf-8 -*-
-import os
-import sys
+"""
+WSGI config for mi_proyecto project.
 
-# Añade la ruta de tu proyecto Django
-sys.path.append('/var/www/mi_proyecto')
-sys.path.append('/var/www/mi_proyecto/mi_proyecto')
+It exposes the WSGI callable as a module-level variable named ``application``.
+
+For more information on this file, see
+https://docs.djangoproject.com/en/5.1/howto/deployment/wsgi/
+"""
+
+import os
+
+from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mi_proyecto.settings')
 
-from django.core.wsgi import get_wsgi_application
 application = get_wsgi_application()

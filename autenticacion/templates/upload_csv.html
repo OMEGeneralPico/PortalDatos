@@ -3,21 +3,14 @@
 {% block title %}Subir Archivos CSV{% endblock %}
 
 {% block content %}
-    <h2>Subir archivo CSV de Presupuesto</h2>
-    <p>Formato CSV esperado: codigo, secretaria, direccion, tipo, nombre, credito_actual, reestructuras, compromiso, disponible, año</p>
-    <form method="POST" enctype="multipart/form-data" action="{% url 'url_name_for_upload_presupuesto_csv' %}"> {# REEMPLAZA con tu nombre de URL real #}
-        {% csrf_token %}
-        <input type="file" name="csv_file_presupuesto" accept=".csv" required />
-        <button type="submit">Subir Presupuesto</button>
-    </form>
+<h2>Subir archivo DBF de Presupuesto</h2>
+<p>Formato DBF esperado con columnas: CODIGO, SECRETARIA, DIRECCION, TIPO, NOMBRE, CREDITO_ACTUAL, REESTRUCTURAS, COMPROMISO, DISPONIBLE, ANO</p>
+<form method="POST" enctype="multipart/form-data" action="{% url 'url_name_for_upload_presupuesto_bdf' %}">
 
-    <hr>
+    {% csrf_token %}
+    <input type="file" name="bdf_file_presupuesto" accept=".dbf" required />
+    <button type="submit">Subir Presupuesto DBF</button>
+</form>
 
-    <h2>Subir archivo CSV de Tipo de Gasto</h2>
-    <p>Formato CSV esperado: tipo (número), categoria (número), descripcion</p>
-    <form method="POST" enctype="multipart/form-data" action="{% url 'url_name_for_upload_tipo_gasto_csv' %}"> {# REEMPLAZA con tu nombre de URL real #}
-        {% csrf_token %}
-        <input type="file" name="csv_file_tipo_gasto" accept=".csv" required />
-        <button type="submit">Subir Tipo de Gasto</button>
-    </form>
+   
 {% endblock %}

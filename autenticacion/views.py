@@ -1,20 +1,74 @@
 # views.py
-
 from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login, logout # Keep if used elsewhere
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
-from cargar_csv.models import Presupuesto # Ensure this is your correct model
-from django.http import JsonResponse
-import json # For serializing data if needed, though render handles it for context
+from cargar_csv.models import Presupuesto, Actividad, Secretaria,Direccion
+from django.http import JsonResponse, HttpResponse
+from django.template.loader import render_to_string
+from xhtml2pdf import pisa
+import json
+from cargar_csv.models import MoviGast
+from datetime import datetime
+from io import BytesIO
+from collections import defaultdict
+
+
+
 
 # graficos_view and obtener_datos_grafico remain as they are,
 # unless you want to apply a similar refactoring strategy to them.
 def graficos_view(request):
     return render(request, "graficos.html")
+def vista_pdf_formulario(request):
+    secretarias = Presupuesto.objects.values_list("secretaria", flat=True).distinct()
+    direcciones = Presupuesto.objects.values_list("direccion", flat=True).distinct()
+    tipos = Presupuesto.objects.values_list("tipo", flat=True).distinct()
 
+    return render(request, "formulario_pdf.html", {
+        "secretarias": secretarias,
+        "direcciones": direcciones,
+        "tipos": tipos,
+    })
+
+def generar_pdf_presupuesto(request):
+    secretaria = request.GET.get("secretaria")
+    direcciones = request.GET.getlist("direccion")
+    tipos = request.GET.getlist("tipo")
+
+    datos = Presupuesto.objects.filter(secretaria=secretaria)
+
+    if direcciones:
+        datos = datos.filter(direccion__in=direcciones)
+
+    if tipos:
+        datos = datos.filter(tipo__in=tipos)
+
+    for d in datos:
+        d.credito_modificado = d.credito_actual + d.reestructuras
+
+    context = {
+        "secretaria": secretaria,
+        "direccion": ", ".join(direcciones) if direcciones else "Todas",
+        "tipo": ", ".join(tipos) if tipos else "Todos",
+        "datos": datos,
+        "año": 2025,
+        "grafico_base64": "",
+        "grafico_barras_base64": "",
+    }
+
+    html_string = render_to_string("pdf_reporte_presupuesto.html", context)
+
+    result = BytesIO()
+    pdf = pisa.CreatePDF(src=html_string, dest=result)
+    if not pdf.err:
+        response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="informe_presupuesto.pdf"'
+        return response
+    else:
+        return HttpResponse("Error al generar el PDF", status=400)
 def obtener_datos_grafico(request):
-    # This function can also be refactored to send more raw data if 
+    # This function can also be refactored to send more raw data if
     # graficos.html is equipped to process it similarly.
     # For now, keeping it as is, as the main request pertains to VistaSecretaria.html
 
@@ -27,7 +81,7 @@ def obtener_datos_grafico(request):
             total_disponible=Sum("disponible")
         )
     )
-    
+
     categorias = []
     series_compromiso = []
     series_disponible = []
@@ -110,7 +164,7 @@ def obtener_datos_grafico(request):
             disponible.append(float(data["total_disponible"] or 0))
         series_secretaria_tipo_compromiso.append({"name": tipo_val, "data": compromiso})
         series_secretaria_tipo_disponible.append({"name": tipo_val, "data": disponible})
-        
+
     return JsonResponse({
         "categorias": categorias,
         "series": [
@@ -150,8 +204,112 @@ def logout_view(request):
     logout(request)
     return redirect("/login/")
 
+
+
+
 @login_required
-@login_required
+def vista_movigast(request):
+    # --- Filtro inicial por perfil de usuario
+    perfil = request.user.userprofile
+    if perfil.is_admin:
+        queryset = MoviGast.objects.all()
+    else:
+        areas_permitidas = perfil.get_areas_list()
+        queryset = MoviGast.objects.filter(direccion__in=areas_permitidas)
+
+    # --- Obtención de filtros del frontend
+    direccion_filter = request.GET.get('direccion')
+    gasto_filter = request.GET.get('gasto')
+    actividad_filter = request.GET.get('actividad')
+
+    # --- Aplicación de filtros adicionales del frontend
+    if direccion_filter:
+        queryset = queryset.filter(direccion=direccion_filter)
+    if gasto_filter:
+        queryset = queryset.filter(gasto=gasto_filter)
+    if actividad_filter:
+        queryset = queryset.filter(actividad=actividad_filter)
+
+    # --- Diccionarios de mapeo para códigos y descripciones
+    direcciones_dict = dict(Direccion.objects.values_list('code', 'desc'))
+    actividades_dict = dict(Actividad.objects.values_list('code', 'desc'))
+
+    # --- Listados para los dropdown de filtros
+    direcciones_listado = sorted([(code, desc) for code, desc in direcciones_dict.items()])
+    actividades_listado = sorted([(code, desc) for code, desc in actividades_dict.items()])
+    gastos_listado = sorted(list(MoviGast.objects.values_list('gasto', flat=True).distinct()))
+
+    # --- Datos para el gráfico principal (ApexCharts)
+    data_por_mes = queryset.values('mes').annotate(total_importe=Sum('importe')).order_by('mes')
+    MESES_ES = {
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+        5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+        9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+    }
+    chart_labels = [MESES_ES.get(d['mes']) for d in data_por_mes]
+    meses_data = [float(d['total_importe']) for d in data_por_mes]
+    meses_para_acordeon = {d['mes']: MESES_ES.get(d['mes']) for d in data_por_mes}
+
+    # --- Función auxiliar para la pestaña "Detalle por Mes"
+    def procesar_datos_acordeon(qs, group_field, desc_dict=None):
+        datos_agrupados = defaultdict(lambda: {'items': [], 'total': 0})
+        datos_qs = qs.values('mes', group_field).annotate(total=Sum('importe')).order_by('mes', group_field)
+        
+        for d in datos_qs:
+            mes = d['mes']
+            codigo = d[group_field]
+            nombre = desc_dict.get(codigo, f"Código {codigo}") if desc_dict else codigo
+            
+            item_data = {'codigo': codigo, 'nombre': nombre, 'total': float(d['total'])}
+            datos_agrupados[mes]['items'].append(item_data)
+            datos_agrupados[mes]['total'] += float(d['total'])
+        
+        for mes in datos_agrupados:
+            datos_agrupados[mes]['items'].sort(key=lambda x: x['nombre'])
+        return dict(datos_agrupados)
+
+    # --- Función auxiliar para la pestaña "Consolidado por Filtro" (CON LA MODIFICACIÓN)
+    def procesar_datos_por_filtro(qs, group_field, desc_dict=None):
+        datos_filtrados = defaultdict(lambda: {'items': [], 'total': 0})
+        datos_qs = qs.values('mes', group_field).annotate(total_importe=Sum('importe')).order_by(group_field, 'mes')
+        
+        for d in datos_qs:
+            codigo = d[group_field]
+            nombre_grupo = f"{codigo} - {desc_dict.get(codigo, 'N/A')}" if desc_dict else codigo
+            
+            item_data = {
+                'mes_numero': d['mes'],  # <-- Campo añadido para ordenar
+                'mes_nombre': MESES_ES.get(d['mes']),
+                'total_importe': float(d['total_importe'])
+            }
+            datos_filtrados[nombre_grupo]['items'].append(item_data)
+            datos_filtrados[nombre_grupo]['total'] += float(d['total_importe'])
+        return dict(sorted(datos_filtrados.items()))
+
+    # --- Procesamiento de datos para las pestañas
+    context = {
+        'direcciones_listado': direcciones_listado,
+        'gastos_listado': gastos_listado,
+        'actividades_listado': actividades_listado,
+        'direccion_filter': direccion_filter,
+        'gasto_filter': gasto_filter,
+        'actividad_filter': actividad_filter,
+        
+        'chart_labels': chart_labels,
+        'meses_data': meses_data,
+        'meses_para_acordeon': meses_para_acordeon,
+        
+        'meses_transpuestos_direccion': procesar_datos_acordeon(queryset, 'direccion', direcciones_dict),
+        'meses_transpuestos_gasto': procesar_datos_acordeon(queryset, 'gasto'),
+        'meses_transpuestos_actividad': procesar_datos_acordeon(queryset, 'actividad', actividades_dict),
+        
+        'filtro_direccion': procesar_datos_por_filtro(queryset, 'direccion', direcciones_dict),
+        'filtro_gasto': procesar_datos_por_filtro(queryset, 'gasto'),
+        'filtro_actividad': procesar_datos_por_filtro(queryset, 'actividad', actividades_dict),
+    }
+
+    return render(request, 'ListadoMensualGasto.html', context)
+
 def vista_secretaria(request):
     perfil = request.user.userprofile
     areas_permitidas = perfil.get_areas_list() if not perfil.is_admin else []
@@ -201,143 +359,12 @@ def vista_secretaria(request):
         if perfil.is_admin or dato["codigo_prefijo"] in areas_permitidas:
          datos_filtrados.append(dato)
 
+    # Ya tenés datos_filtrados
+    prefijos_usuario = set(d["codigo_prefijo"] for d in datos_filtrados)
+
+    mostrar_direcciones = len(prefijos_usuario) > 1
 
     return render(request, "VistaSecretaria.html", {
-        "todos_los_datos_presupuesto_json": json.dumps(datos_filtrados)
-    })
-
-    perfil = request.user.userprofile
-
-    if perfil.is_admin:
-        queryset = Presupuesto.objects.all()
-    else:
-        areas = perfil.get_areas_list()
-        queryset = Presupuesto.objects.filter(secretaria__in=areas)
-    # Fetch all necessary fields from the Presupuesto model
-    # 'codigo_sufijo' is NOT fetched here as it's derived later
-    todos_los_datos = list(Presupuesto.objects.values(
-        "secretaria", "tipo", "direccion", "codigo", # 'codigo' is IntegerField in model
-        "credito_actual", "reestructuras", "compromiso", "disponible", # reestructuras is DecimalField
-        "año" 
-    ))
-
-    for dato in todos_los_datos:
-        # Convert monetary fields to float, handling None
-        dato["credito_actual"] = float(dato["credito_actual"] or 0)
-        dato["reestructuras"] = float(dato["reestructuras"] or 0)
-        dato["compromiso"] = float(dato["compromiso"] or 0)
-        dato["disponible"] = float(dato["disponible"] or 0)
-        
-        # Handle 'año', ensuring it's an integer
-        dato["año"] = int(dato["año"]) if dato["año"] is not None else 0
-        
-        # Handle string fields, providing defaults for None
-        dato["secretaria"] = dato["secretaria"] if dato["secretaria"] is not None else "Indefinido"
-        dato["tipo"] = dato["tipo"] if dato["tipo"] is not None else "Indefinido"
-        dato["direccion"] = dato["direccion"] if dato["direccion"] is not None else "Indefinido"
-        
-        # Process 'codigo' (which is an Integer from DB) to string for manipulation
-        # and derive 'codigo_sufijo'
-        original_codigo_val = dato.get("codigo") # This is the integer from the database
-        processed_codigo_str = str(original_codigo_val) if original_codigo_val is not None else "N/A"
-        
-        # Store the string version of the code as 'codigo' for the template,
-        # if the template expects it as a string.
-        # If the template is fine with integer 'codigo' and only uses 'codigo_sufijo' for filtering,
-        # you might not need to overwrite dato['codigo'] here.
-        # However, previous logic was overwriting it, so we maintain that for consistency.
-        dato["codigo"] = processed_codigo_str 
-
-        # Derive 'codigo_sufijo'
-        if processed_codigo_str != "N/A":
-            parts = processed_codigo_str.split("'")
-            if len(parts) == 2 and len(parts[1]) == 2: 
-                dato["codigo_sufijo"] = parts[1]
-            elif len(processed_codigo_str) >= 2: 
-                dato["codigo_sufijo"] = processed_codigo_str[-2:]
-            else: 
-                dato["codigo_sufijo"] = "XX" # Placeholder for unparseable/short suffixes
-        else:
-            dato["codigo_sufijo"] = "N/A" # For original None/empty codes
-            
-    return render(request, "VistaSecretaria.html", {
-        "todos_los_datos_presupuesto_json": json.dumps(todos_los_datos)
-    })
-
-    todos_los_datos = list(Presupuesto.objects.values(
-        "secretaria", "tipo", "direccion", "codigo",
-        "credito_actual", "reestructuras", "compromiso", "disponible", # <<< AÑADIDO 'reestructuras'
-        "año", "codigo_sufijo" # Assuming codigo_sufijo is still in use from previous changes
-    ))
-
-    # print(f"Datos de ejemplo obtenidos de la BD (primeros 1): {todos_los_datos[:1]}")
-
-    for dato in todos_los_datos:
-        dato["credito_actual"] = float(dato["credito_actual"] or 0)
-        dato["reestructuras"] = float(dato["reestructuras"] or 0) # <<< AÑADIDO PROCESAMIENTO PARA 'reestructuras'
-        dato["compromiso"] = float(dato["compromiso"] or 0)
-        dato["disponible"] = float(dato["disponible"] or 0) # This will be the value from DB.
-                                                                # If it's not correctly updated in DB, use calculated:
-                                                                # dato["disponible_calculado"] = dato["credito_actual"] + dato["reestructuras"] - dato["compromiso"]
-        dato["año"] = int(dato["año"]) if dato["año"] is not None else 0
-        dato["secretaria"] = dato["secretaria"] if dato["secretaria"] is not None else "Indefinido"
-        dato["tipo"] = dato["tipo"] if dato["tipo"] is not None else "Indefinido"
-        dato["direccion"] = dato["direccion"] if dato["direccion"] is not None else "Indefinido"
-        
-        original_codigo_val = dato.get("codigo")
-        processed_codigo_str = str(original_codigo_val) if original_codigo_val is not None else "N/A"
-        dato["codigo"] = processed_codigo_str 
-
-        if "codigo_sufijo" not in dato: # Ensure codigo_sufijo processing if it was there
-            if processed_codigo_str != "N/A":
-                parts = processed_codigo_str.split("'")
-                if len(parts) == 2 and len(parts[1]) == 2: 
-                    dato["codigo_sufijo"] = parts[1]
-                elif len(processed_codigo_str) >= 2: 
-                    dato["codigo_sufijo"] = processed_codigo_str[-2:]
-                else: 
-                    dato["codigo_sufijo"] = "XX" 
-            else:
-                dato["codigo_sufijo"] = "N/A"
-    
-    # print(f"Datos de ejemplo procesados (primeros 1): {todos_los_datos[:1]}")
-        
-    return render(request, "VistaSecretaria.html", {
-        "todos_los_datos_presupuesto_json": json.dumps(todos_los_datos)
-    })
-    todos_los_datos = list(Presupuesto.objects.values(
-        "secretaria", "tipo", "direccion", "codigo",
-        "compromiso", "disponible", "credito_actual",
-        "año"
-    ))
-
-    for dato in todos_los_datos:
-        dato["compromiso"] = float(dato["compromiso"] or 0)
-        dato["disponible"] = float(dato["disponible"] or 0)
-        dato["credito_actual"] = float(dato["credito_actual"] or 0)
-        dato["año"] = int(dato["año"]) if dato["año"] is not None else 0
-        dato["secretaria"] = dato["secretaria"] if dato["secretaria"] is not None else "Indefinido"
-        dato["tipo"] = dato["tipo"] if dato["tipo"] is not None else "Indefinido"
-        dato["direccion"] = dato["direccion"] if dato["direccion"] is not None else "Indefinido"
-        
-        original_codigo_val = dato.get("codigo")
-        processed_codigo_str = str(original_codigo_val) if original_codigo_val is not None else "N/A"
-        dato["codigo"] = processed_codigo_str # Store the full processed code as string
-
-        if processed_codigo_str != "N/A":
-            parts = processed_codigo_str.split("'")
-            if len(parts) == 2 and len(parts[1]) == 2: # XX'YY format and YY is 2 chars
-                dato["codigo_sufijo"] = parts[1]
-            # Fallback for codes like '7412' (no apostrophe) or if YY part from split isn't 2 chars
-            elif len(processed_codigo_str) >= 2: 
-                dato["codigo_sufijo"] = processed_codigo_str[-2:]
-            else: # Code is too short or malformed (e.g. "1", "X'Y")
-                dato["codigo_sufijo"] = "XX" # Placeholder for unparseable/short suffixes
-        else:
-            dato["codigo_sufijo"] = "N/A" # For original None/empty codes
-
-    # print(f"Datos de ejemplo procesados (primeros 3): {todos_los_datos[:3]}")
-        
-    return render(request, "VistaSecretaria.html", {
-        "todos_los_datos_presupuesto_json": json.dumps(todos_los_datos)
-    })
+    "todos_los_datos_presupuesto_json": json.dumps(datos_filtrados),
+    "mostrar_direcciones": mostrar_direcciones
+})

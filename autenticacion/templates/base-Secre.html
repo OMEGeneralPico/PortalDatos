@@ -70,7 +70,44 @@
         
       
         
-    </style>
+    </style><style>/* Escalar solo los gráficos de torta (chart-direcciones y chart-tipos) según resolución */
+
+@media screen and (max-width: 1600px) {
+    table {
+        font-size: 13px;
+    }
+
+    #chart-direcciones .apexcharts-canvas,
+    #chart-tipos .apexcharts-canvas {
+        transform: scale(0.9);
+        transform-origin: top left;
+    }
+}
+
+@media screen and (max-width: 1366px) {
+    table {
+        font-size: 12px;
+    }
+
+    #chart-direcciones .apexcharts-canvas,
+    #chart-tipos .apexcharts-canvas {
+        transform: scale(0.75);
+        transform-origin: top left;
+    }
+}
+
+@media screen and (max-width: 1024px) {
+    table {
+        font-size: 11px;
+    }
+
+    #chart-direcciones .apexcharts-canvas,
+    #chart-tipos .apexcharts-canvas {
+        transform: scale(0.6);
+        transform-origin: top left;
+    }
+}
+</style>
 </head>
 
 

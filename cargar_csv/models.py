@@ -34,3 +34,50 @@ class Presupuesto(models.Model):
     # def save(self, *args, **kwargs):
     #     self.disponible = self.credito_actual + self.reestructuras - self.compromiso
     #     super().save(*args, **kwargs)
+
+class Secretaria(models.Model):
+    """Almacena los códigos y descripciones de las Secretarías."""
+    code = models.CharField("Código", max_length=10, primary_key=True)
+    desc = models.CharField("Descripción", max_length=255)
+
+    def __str__(self):
+        return f"{self.code} - {self.desc}"
+    
+    class Meta:
+        verbose_name = "Secretaría"
+        verbose_name_plural = "Secretarías"
+
+class Direccion(models.Model):
+    """Almacena los códigos y descripciones de las Direcciones."""
+    code = models.CharField("Código", max_length=10, primary_key=True)
+    desc = models.CharField("Descripción", max_length=255)
+
+    def __str__(self):
+        return f"{self.code} - {self.desc}"
+    
+    class Meta:
+        verbose_name = "Dirección"
+        verbose_name_plural = "Direcciones"
+
+class Actividad(models.Model):
+    """Almacena los códigos y descripciones de las Actividades."""
+    code = models.CharField("Código", max_length=10, primary_key=True)
+    desc = models.CharField("Descripción", max_length=255)
+
+    def __str__(self):
+        return f"{self.code} - {self.desc}"
+    
+    class Meta:
+        verbose_name = "Actividad"
+        verbose_name_plural = "Actividades"
+
+class MoviGast(models.Model):
+    direccion = models.CharField(max_length=2)  # antes xx
+    gasto = models.CharField(max_length=2)      # antes yy
+    mes = models.PositiveSmallIntegerField()
+    año = models.PositiveSmallIntegerField()
+    importe = models.DecimalField(max_digits=15, decimal_places=2)
+    actividad = models.CharField(max_length=50, null=True, blank=True)  # ver punto 3
+
+    def __str__(self):
+        return f"{self.año}-{self.mes:02} | Dir:{self.direccion} Gasto:{self.gasto} | {self.importe}"
