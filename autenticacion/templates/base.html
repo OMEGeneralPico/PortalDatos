@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Mi Portal{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            display: flex; 
+            flex-direction: column; 
+            min-height: 100vh;
+        }
+        header, footer { 
+            background: #333; 
+            color: white; 
+            padding: 10px; 
+            text-align: center; 
+            width: 100%;
+        }
+        .container { 
+            display:flex;
+              width: 100%;
+             
+            max-width:initial;
+            > .row{
+                margin: 0;
+                > .col{
+                    padding: 0;
+                }
+            }
+        }
+        aside { 
+            width: 200px; 
+            background: #444; 
+            color: white; 
+            padding: 20px; 
+        }
+        aside ul { 
+            list-style: none; 
+            padding: 0;
+        }
+        aside ul li { 
+            padding: 10px;
+        }
+        aside ul li a { 
+            color: white; 
+            text-decoration: none;
+        }
+        .content { 
+            flex: 1; 
+            padding: 20px; 
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Encabezado -->
+    <header>
+        <h1>Portal OME</h1>
+        <nav>
+            <a href="/">Inicio</a> |
+            <a href="{% url 'logout' %}">Cerrar sesión</a>
+        </nav>
+    </header>
+
+    <!-- Contenedor principal con la barra lateral y el contenido -->
+    <div class="container">
+        <aside>
+            <ul>
+                <li><a href="/">Inicio</a></li>
+                <li><a href="/estadisticas">Estadísticas</a></li>
+                <li><a href="/Secretarias">Secretarias</a></li>
+                <li><a href="/configuracion">Configuración</a></li>
+            </ul>
+        </aside>
+
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <!-- Pie de página -->
+    <footer>
+        <p>© 2025 Mi Portal - Todos los derechos reservados</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</body>
+</html>

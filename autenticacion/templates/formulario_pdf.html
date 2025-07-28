@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Generar Informe PDF{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col s12 m8 offset-m2">
+    <div class="card">
+      <div class="card-content">
+        <span class="card-title">Generar informe PDF de Presupuesto</span>
+
+        <form method="get" action="{% url 'generar_pdf' %}">
+          <div class="input-field">
+            <select name="secretaria" id="secretaria" required>
+              <option value="" disabled selected>Seleccionar Secretaría</option>
+              {% for s in secretarias %}
+                <option value="{{ s }}">{{ s }}</option>
+              {% endfor %}
+            </select>
+            <label for="secretaria">Secretaría</label>
+          </div>
+
+          <div class="input-field">
+            <select name="direccion" id="direccion" multiple>
+              {% for d in direcciones %}
+                <option value="{{ d }}">{{ d }}</option>
+              {% endfor %}
+            </select>
+            <label for="direccion">Dirección(es)</label>
+          </div>
+
+          <div class="input-field">
+            <select name="tipo" id="tipo" multiple>
+              {% for t in tipos %}
+                <option value="{{ t }}">{{ t }}</option>
+              {% endfor %}
+            </select>
+            <label for="tipo">Tipo(s) de Gasto</label>
+          </div>
+
+          <div class="center-align" style="margin-top: 20px;">
+            <button type="submit" class="btn waves-effect waves-light blue">
+              Generar PDF
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<!-- Inicializar Materialize -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var selects = document.querySelectorAll('select');
+  M.FormSelect.init(selects);
+});
+</script>
+{% endblock %}
